@@ -4,10 +4,11 @@ import type { AnalysisMetrics, AnalysisFeedback, AnalysisResult } from '../types
 export const analyzeURL = async (url: string): Promise<AnalysisResult> => {
   const urlObj = new URL(url)
   
-  // Enhanced Landin detection for URLs
+  // Enhanced Landin detection for URLs and content
   const isLandinSite = url.toLowerCase().includes('landin.ir') || 
                        url.toLowerCase().includes('templates.landin') ||
-                       url.toLowerCase().includes('landin')
+                       url.toLowerCase().includes('landin') ||
+                       url.includes('لندین')
 
   // Create base metrics with Landin optimizations
   const metrics: AnalysisMetrics = {
@@ -91,17 +92,26 @@ export const analyzeURL = async (url: string): Promise<AnalysisResult> => {
 }
 
 const calculateScores = (metrics: AnalysisMetrics) => {
-  // Technical score calculation
+  // Technical score calculation (35% weight)
   let techScore = 0
+  
+  // Landin detection bonus (20 points)
   techScore += metrics.technical.isLandin ? 20 : 0
-  techScore += (metrics.technical.pageSpeed / 100) * 30
-  techScore += (scorePageSize(metrics.technical.pageSize) / 100) * 20
-  techScore += metrics.technical.https ? 15 : 0
+  
+  // Page speed (20 points)
+  techScore += (metrics.technical.pageSpeed / 100) * 20
+  
+  // Page size (15 points)
+  techScore += (scorePageSize(metrics.technical.pageSize) / 100) * 15
+  
+  // HTTPS (20 points)
+  techScore += metrics.technical.https ? 20 : 0
+  
+  // Responsive (15 points)
   techScore += metrics.technical.responsive ? 15 : 0
   
-  if (metrics.technical.isLandin) {
-    techScore += 10 // Bonus for Landin sites
-  }
+  // Image optimization (10 points)
+  techScore += (metrics.technical.imageOptimization / 100) * 10
   
   metrics.technical.score = Math.min(techScore, 100)
 
@@ -263,16 +273,16 @@ const scoreContactInfo = (contactCount: number): number => {
 }
 
 const calculateFinalScore = (metrics: AnalysisMetrics): number => {
-  return (metrics.technical.score * 0.30) + 
+  return (metrics.technical.score * 0.35) + 
          (metrics.seo.score * 0.25) + 
          (metrics.ux.score * 0.25) + 
-         (metrics.conversion.score * 0.20)
+         (metrics.conversion.score * 0.15)
 }
 
 const getGrade = (score: number): 'A' | 'B' | 'C' | 'D' | 'F' => {
-  if (score >= 85) return 'A'
-  if (score >= 70) return 'B'
-  if (score >= 55) return 'C'
-  if (score >= 40) return 'D'
+  if (score >= 90) return 'A'
+  if (score >= 80) return 'B'
+  if (score >= 70) return 'C'
+  if (score >= 60) return 'D'
   return 'F'
 }
