@@ -79,7 +79,7 @@ const AnalysisForm: React.FC<AnalysisFormProps> = ({ onAnalyze, isLoading, error
           <button
             type="submit"
             disabled={isLoading || !url.trim()}
-            className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full lg:w-fit btn-primary flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? (
               <>
@@ -98,7 +98,7 @@ const AnalysisForm: React.FC<AnalysisFormProps> = ({ onAnalyze, isLoading, error
             type="button"
             onClick={handleSample}
             disabled={isLoading}
-            className="btn-secondary flex items-center gap-2 disabled:opacity-50"
+            className="w-full lg:w-fit btn-secondary flex justify-center items-center gap-2 disabled:opacity-50"
           >
             <BarChart3 className="w-5 h-5" />
             نمونه تحلیل
@@ -109,7 +109,7 @@ const AnalysisForm: React.FC<AnalysisFormProps> = ({ onAnalyze, isLoading, error
               type="button"
               onClick={handleReset}
               disabled={isLoading}
-              className="btn-secondary flex items-center gap-2 disabled:opacity-50"
+              className="w-full lg:w-fit btn-secondary justify-center flex items-center gap-2 disabled:opacity-50"
             >
               <RefreshCw className="w-5 h-5" />
               شروع مجدد
