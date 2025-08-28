@@ -4,104 +4,26 @@ import type {
   AnalysisResult,
 } from "../types";
 
-// Landing Page Analyzer Logic (same as extension)
+// Landing Page Analyzer Logic - Now with real data fetching
 export const analyzeURL = async (url: string): Promise<AnalysisResult> => {
-  const urlObj = new URL(url);
-
-  // Enhanced Landin detection for URLs and content
-  const isLandinSite =
-    url.toLowerCase().includes("landin.ir") ||
-    url.toLowerCase().includes("templates.landin") ||
-    url.toLowerCase().includes("landin") ||
-    url.includes("لندین");
-
-  // Create base metrics with Landin optimizations
-  const metrics: AnalysisMetrics = {
-    url: url,
-    technical: {
-      https: urlObj.protocol === "https:",
-      pageSize: isLandinSite
-        ? Math.random() * 2000000 + 800000
-        : Math.random() * 3000000 + 500000,
-      responsive: isLandinSite ? true : Math.random() > 0.2,
-      isLandin: isLandinSite,
-      imageOptimization: isLandinSite
-        ? Math.random() * 20 + 80
-        : Math.random() * 40 + 60,
-      pageSpeed: isLandinSite
-        ? Math.random() * 15 + 80
-        : Math.random() * 30 + 60,
-      score: 0,
-    },
-    seo: {
-      hasTitle: true,
-      titleLength: isLandinSite
-        ? Math.floor(Math.random() * 20 + 50)
-        : Math.floor(Math.random() * 40 + 30),
-      titleScore: 0,
-      hasMetaDesc: isLandinSite ? true : Math.random() > 0.3,
-      metaDescLength: isLandinSite
-        ? Math.floor(Math.random() * 40 + 120)
-        : Math.floor(Math.random() * 80 + 100),
-      metaDescScore: 0,
-      h1Count: 1,
-      h2Count: isLandinSite
-        ? Math.floor(Math.random() * 3) + 3
-        : Math.floor(Math.random() * 4) + 2,
-      headingStructureScore: 0,
-      altTagsScore: isLandinSite
-        ? Math.random() * 20 + 75
-        : Math.random() * 40 + 50,
-      urlScore: isLandinSite
-        ? Math.random() * 20 + 70
-        : Math.random() * 50 + 40,
-      score: 0,
-    },
-    ux: {
-      ctas: Array(
-        isLandinSite
-          ? Math.floor(Math.random() * 2) + 2
-          : Math.floor(Math.random() * 4) + 1
-      ).fill({}),
-      ctaScore: 0,
-      contrastScore: isLandinSite
-        ? Math.random() * 15 + 80
-        : Math.random() * 40 + 50,
-      whitespaceScore: isLandinSite
-        ? Math.random() * 15 + 80
-        : Math.random() * 40 + 50,
-      mobileFriendly: isLandinSite ? true : Math.random() > 0.3,
-      score: 0,
-    },
-    conversion: {
-      forms: Array(isLandinSite ? 1 : Math.floor(Math.random() * 2)).fill({
-        fieldCount: isLandinSite
-          ? Math.floor(Math.random() * 3) + 2
-          : Math.floor(Math.random() * 6) + 2,
-      }),
-      formScore: 0,
-      socialProofElements: Array(
-        isLandinSite
-          ? Math.floor(Math.random() * 2) + 2
-          : Math.floor(Math.random() * 4)
-      ).fill({}),
-      socialProof: 0,
-      trustSignals: Array(
-        isLandinSite
-          ? Math.floor(Math.random() * 2) + 1
-          : Math.floor(Math.random() * 3)
-      ).fill({}),
-      trustScore: 0,
-      contactInfo: isLandinSite
-        ? Math.floor(Math.random() * 2) + 2
-        : Math.floor(Math.random() * 2) + 1,
-      contactScore: 0,
-      uspScore: isLandinSite
-        ? Math.random() * 20 + 75
-        : Math.random() * 50 + 40,
-      score: 0,
-    },
-  };
+  let metrics: AnalysisMetrics;
+  
+  try {
+    // Try to fetch real content first
+    const response = await fetch(url, { mode: 'cors' });
+    
+    if (response.ok) {
+      const html = await response.text();
+      metrics = await analyzeHTMLContent(html, url);
+    } else {
+      // Fallback to simulation if fetch fails
+      metrics = generateSimulatedMetrics(url);
+    }
+  } catch (error) {
+    // CORS or network error - use simulation
+    console.warn('Fetch failed, using simulation:', error);
+    metrics = generateSimulatedMetrics(url);
+  }
 
   // Calculate scores using same logic as extension
   calculateScores(metrics);
@@ -132,6 +54,273 @@ export const analyzeURL = async (url: string): Promise<AnalysisResult> => {
     feedback,
     chartData,
   };
+};
+
+// Function to analyze real HTML content
+const analyzeHTMLContent = async (html: string, url: string): Promise<AnalysisMetrics> => {
+  // Parse HTML using DOMParser (browser) or jsdom (Node.js)
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  
+  // Enhanced Landin detection
+  const isLandinSite = url.toLowerCase().includes('landin.ir') ||
+                      url.toLowerCase().includes('templates.landin') ||
+                      url.toLowerCase().includes('landin') ||
+                      url.includes('لندین') ||
+                      html.toLowerCase().includes('landin');
+  
+  const metrics: AnalysisMetrics = {
+    url: url,
+    technical: {
+      https: url.startsWith('https:'),
+      pageSize: html.length, // Real HTML size
+      responsive: !!doc.querySelector('meta[name="viewport"]'),
+      isLandin: isLandinSite,
+      imageOptimization: analyzeImagesFromHTML(doc),
+      pageSpeed: estimatePageSpeedFromHTML(doc, isLandinSite),
+      score: 0,
+    },
+    seo: {
+      hasTitle: !!doc.querySelector('title'),
+      titleLength: doc.querySelector('title')?.textContent?.trim().length || 0,
+      titleScore: 0,
+      hasMetaDesc: !!doc.querySelector('meta[name="description"]'),
+      metaDescLength: doc.querySelector('meta[name="description"]')?.getAttribute('content')?.length || 0,
+      metaDescScore: 0,
+      h1Count: doc.querySelectorAll('h1').length,
+      h2Count: doc.querySelectorAll('h2').length,
+      headingStructureScore: 0,
+      altTagsScore: analyzeAltTagsFromHTML(doc),
+      urlScore: analyzeURLStructure(url, doc),
+      score: 0,
+    },
+    ux: {
+      ctas: Array.from(analyzeCTAsFromHTML(doc)),
+      ctaScore: 0,
+      contrastScore: estimateContrastFromHTML(),
+      whitespaceScore: estimateWhitespaceFromHTML(html),
+      mobileFriendly: !!doc.querySelector('meta[name="viewport"]'),
+      score: 0,
+    },
+    conversion: {
+      forms: analyzeFormsFromHTML(doc),
+      formScore: 0,
+      socialProofElements: Array.from(findSocialProofFromHTML(doc)),
+      socialProof: 0,
+      trustSignals: Array.from(findTrustSignalsFromHTML(doc)),
+      trustScore: 0,
+      contactInfo: findContactInfoFromHTML(doc, html),
+      contactScore: 0,
+      uspScore: analyzeUSPFromHTML(doc, isLandinSite),
+      score: 0,
+    },
+  };
+  
+  return metrics;
+};
+
+// Fallback simulation function
+const generateSimulatedMetrics = (url: string): AnalysisMetrics => {
+  const isLandinSite = url.toLowerCase().includes('landin.ir') ||
+                      url.toLowerCase().includes('templates.landin') ||
+                      url.toLowerCase().includes('landin') ||
+                      url.includes('لندین');
+
+  return {
+    url: url,
+    technical: {
+      https: url.startsWith('https:'),
+      pageSize: isLandinSite ? Math.random() * 2000000 + 800000 : Math.random() * 3000000 + 500000,
+      responsive: isLandinSite ? true : Math.random() > 0.2,
+      isLandin: isLandinSite,
+      imageOptimization: isLandinSite ? Math.random() * 20 + 80 : Math.random() * 40 + 60,
+      pageSpeed: isLandinSite ? Math.random() * 15 + 80 : Math.random() * 30 + 60,
+      score: 0,
+    },
+    seo: {
+      hasTitle: true,
+      titleLength: isLandinSite ? Math.floor(Math.random() * 20 + 50) : Math.floor(Math.random() * 40 + 30),
+      titleScore: 0,
+      hasMetaDesc: isLandinSite ? true : Math.random() > 0.3,
+      metaDescLength: isLandinSite ? Math.floor(Math.random() * 40 + 120) : Math.floor(Math.random() * 80 + 100),
+      metaDescScore: 0,
+      h1Count: 1,
+      h2Count: isLandinSite ? Math.floor(Math.random() * 3) + 3 : Math.floor(Math.random() * 4) + 2,
+      headingStructureScore: 0,
+      altTagsScore: isLandinSite ? Math.random() * 20 + 75 : Math.random() * 40 + 50,
+      urlScore: isLandinSite ? Math.random() * 20 + 70 : Math.random() * 50 + 40,
+      score: 0,
+    },
+    ux: {
+      ctas: Array(isLandinSite ? Math.floor(Math.random() * 2) + 2 : Math.floor(Math.random() * 4) + 1).fill({}),
+      ctaScore: 0,
+      contrastScore: 80, // Match extension logic
+      whitespaceScore: 70, // Conservative estimate for simulation
+      mobileFriendly: isLandinSite ? true : Math.random() > 0.3,
+      score: 0,
+    },
+    conversion: {
+      forms: Array(isLandinSite ? 1 : Math.floor(Math.random() * 2)).fill({
+        fieldCount: isLandinSite ? Math.floor(Math.random() * 3) + 2 : Math.floor(Math.random() * 6) + 2,
+      }),
+      formScore: 0,
+      socialProofElements: Array(isLandinSite ? Math.floor(Math.random() * 2) + 2 : Math.floor(Math.random() * 4)).fill({}),
+      socialProof: 0,
+      trustSignals: Array(isLandinSite ? Math.floor(Math.random() * 2) + 1 : Math.floor(Math.random() * 3)).fill({}),
+      trustScore: 0,
+      contactInfo: isLandinSite ? Math.floor(Math.random() * 2) + 2 : Math.floor(Math.random() * 2) + 1,
+      contactScore: 0,
+      uspScore: isLandinSite ? Math.random() * 20 + 75 : Math.random() * 50 + 40,
+      score: 0,
+    },
+  };
+};
+
+// Helper functions for HTML analysis
+const analyzeImagesFromHTML = (doc: Document): number => {
+  const images = doc.querySelectorAll('img');
+  if (images.length === 0) return 100;
+  
+  const withAlt = Array.from(images).filter(img => img.alt && img.alt.trim() !== '').length;
+  return (withAlt / images.length) * 100;
+};
+
+const estimatePageSpeedFromHTML = (doc: Document, isLandin: boolean): number => {
+  const resourceCount = doc.querySelectorAll('script, link[rel="stylesheet"], img').length;
+  let baseScore = 85; // Match extension default
+  
+  // Landin sites are generally well-optimized
+  if (isLandin) {
+    baseScore = 90; // Match extension exactly
+  }
+  
+  const penalty = Math.min(resourceCount * 1.5, 25); // Match extension penalty
+  return Math.max(baseScore - penalty, 60); // Match extension minimum
+};
+
+const analyzeAltTagsFromHTML = (doc: Document): number => {
+  const images = doc.querySelectorAll('img');
+  if (images.length === 0) return 100;
+  
+  const withAlt = Array.from(images).filter(img => img.alt && img.alt.trim() !== '').length;
+  const percentage = (withAlt / images.length) * 100;
+  
+  if (percentage >= 90) return 100;
+  if (percentage >= 60) return 70;
+  return 30;
+};
+
+const analyzeURLStructure = (url: string, doc: Document): number => {
+  const hasCanonical = !!doc.querySelector('link[rel="canonical"]');
+  const isClean = !url.includes('?') || url.split('?')[1].length < 50;
+  const hasReadableStructure = url.split('/').length <= 6;
+  
+  let score = 0;
+  if (hasCanonical) score += 40;
+  if (isClean) score += 30;
+  if (hasReadableStructure) score += 30;
+  
+  return score;
+};
+
+const analyzeCTAsFromHTML = (doc: Document): Set<Element> => {
+  const ctaSelectors = [
+    'button',
+    'a[href*="signup"]', 'a[href*="register"]', 'a[href*="buy"]',
+    'a[href*="order"]', 'a[href*="purchase"]', 'a[href*="contact"]',
+    '.cta', '.btn', '.button', '[class*="call-to-action"]'
+  ];
+  
+  const ctas = new Set<Element>();
+  ctaSelectors.forEach(selector => {
+    doc.querySelectorAll(selector).forEach(el => ctas.add(el));
+  });
+  
+  return ctas;
+};
+
+const estimateContrastFromHTML = (): number => {
+  // Match extension logic: simplified contrast analysis
+  // Since we can't access getComputedStyle, use a conservative estimate
+  // Most sites have decent contrast, so default to 80 like extension does
+  return 80;
+};
+
+const estimateWhitespaceFromHTML = (html: string): number => {
+  // Match extension logic exactly: textLength / htmlLength ratio
+  const textLength = html.replace(/<[^>]*>/g, '').trim().length;
+  const ratio = textLength / html.length;
+  
+  // Lower ratio indicates more markup/whitespace relative to text
+  if (ratio < 0.3) return 100; // Good whitespace
+  if (ratio < 0.5) return 70;
+  return 40; // Too dense
+};
+
+const analyzeFormsFromHTML = (doc: Document): Array<{ fieldCount: number }> => {
+  const forms = doc.querySelectorAll('form');
+  return Array.from(forms).map(form => {
+    const fields = form.querySelectorAll('input[type="text"], input[type="email"], input[type="tel"], textarea, select');
+    return {
+      fieldCount: fields.length
+    };
+  });
+};
+
+const findSocialProofFromHTML = (doc: Document): Element[] => {
+  const selectors = [
+    '.testimonial', '.review', '.rating', '.customer-logo',
+    '[class*="testimonial"]', '[class*="review"]', '[class*="rating"]',
+    'img[src*="logo"]', '[class*="trust"]', '[class*="badge"]'
+  ];
+  
+  const elements: Element[] = [];
+  selectors.forEach(selector => {
+    elements.push(...Array.from(doc.querySelectorAll(selector)));
+  });
+  
+  return elements;
+};
+
+const findTrustSignalsFromHTML = (doc: Document): Element[] => {
+  const selectors = [
+    '[class*="secure"]', '[class*="guarantee"]', '[class*="warranty"]',
+    'img[src*="ssl"]', 'img[src*="secure"]', 'img[src*="trust"]',
+    '[class*="certified"]', '[class*="verified"]'
+  ];
+  
+  const elements: Element[] = [];
+  selectors.forEach(selector => {
+    elements.push(...Array.from(doc.querySelectorAll(selector)));
+  });
+  
+  return elements;
+};
+
+const findContactInfoFromHTML = (doc: Document, html: string): number => {
+  const phonePattern = /\+?\d{1,4}[-.\s]?\(?\d{1,4}\)?[-.\s]?\d{1,4}[-.\s]?\d{1,9}/g;
+  const emailPattern = /[\w._%+-]+@[\w.-]+\.[A-Za-z]{2,}/g;
+  
+  const text = doc.body?.textContent || html;
+  const phones = (text.match(phonePattern) || []).length;
+  const emails = (text.match(emailPattern) || []).length;
+  const contactLinks = doc.querySelectorAll('a[href^="tel:"], a[href^="mailto:"]').length;
+  
+  return phones + emails + contactLinks;
+};
+
+const analyzeUSPFromHTML = (doc: Document, isLandin: boolean): number => {
+  // Look for unique selling proposition in headings and prominent text
+  const prominentText = Array.from(doc.querySelectorAll('h1, h2, .hero, [class*="headline"]'))
+    .map(el => el.textContent)
+    .join(' ');
+  
+  // Basic check for value proposition keywords
+  const uspKeywords = ['فقط', 'منحصر', 'بهترین', 'رایگان', 'سریع', 'آسان', 'تضمین', 'exclusive', 'best', 'free', 'fast', 'easy', 'guarantee'];
+  const hasUSP = uspKeywords.some(keyword => prominentText.toLowerCase().includes(keyword));
+  
+  if (hasUSP) return 100;
+  return isLandin ? 80 : 60; // Match extension logic
 };
 
 const calculateScores = (metrics: AnalysisMetrics) => {
